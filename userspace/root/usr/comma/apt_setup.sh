@@ -1,0 +1,11 @@
+#!/bin/bash -e
+
+# Skip unless this is a booted systemd system.
+if [ ! -d /run/systemd/system ]; then
+  exit 0
+fi
+
+sudo mount -o rw,remount /
+sudo resize2fs $(findmnt -n -o SOURCE /) &>/dev/null || sudo resize2fs $(findmnt -n -o SOURCE /)
+sudo mount -o remount,size=1500M /var
+sudo cp -r /usr/default/var/lib/dpkg /var/lib/

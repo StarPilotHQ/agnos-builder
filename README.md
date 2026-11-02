@@ -1,6 +1,6 @@
 # agnos-builder
 
-This is the builder repo for AGNOS, our Ubuntu based OS. AGNOS runs on the comma 3X and [comma four](https://comma.ai/shop/comma-four).
+This is the builder repo for AGNOS, our Ubuntu based OS. This StarPilot build retains comma 3 support alongside the comma 3X and [comma four](https://comma.ai/shop/comma-four).
 
 > [!NOTE]
 > Use https://flash.comma.ai if you're looking to reflash your device to a clean factory state.
@@ -26,25 +26,15 @@ git submodule update --init agnos-kernel-sdm845
 
 ### Building
 
-This fork's checked-in `VERSION`, managed-venv lockfile, factory setup/installer,
-Bluetooth files, and WebRTC patches are the StarPilot release inputs. `build_system.sh` validates
-those inputs before starting Docker, so a build cannot silently fall back to the
-stock installer or omit the C3 runtime dependencies.
-
-AGNOS 19.8.1 also builds and installs the [Connect ICE fix](userspace/webrtc/README.md)
-into the managed Python environment, after the frozen dependency sync. Both the
-built wheel and installed runtime must pass loopback ICE regression checks.
-The remaining locked packages and existing C3/Bluetooth fixes are unchanged.
-
 1. (Optional) Because AGNOS currently packages dependencies that [openpilot](https://github.com/commaai/openpilot) uses, run `./sync_openpilot_dependencies.sh` to update them.
 
-2. (Optional) The setup, reset, and updater UIs are Python [zipapps](https://docs.python.org/3/library/zipapp.html) built from openpilot using `release/pack.py`. To rebuild them, run from the [openpilot](https://github.com/commaai/openpilot) repo:
+2. (Optional) The setup, reset, and updater UIs are Python [zipapps](https://docs.python.org/3/library/zipapp.html) built from openpilot using `tools/release/pack.py`. To rebuild them, run from the [openpilot](https://github.com/commaai/openpilot) repo:
 
     ```
     cd /path/to/openpilot
-    python release/pack.py -o /path/to/agnos-builder/userspace/usr/comma/setup openpilot.system.ui.mici_setup
-    python release/pack.py -o /path/to/agnos-builder/userspace/usr/comma/reset openpilot.system.ui.reset
-    python release/pack.py -o /path/to/agnos-builder/userspace/usr/comma/updater openpilot.system.ui.updater
+    python tools/release/pack.py -o /path/to/agnos-builder/userspace/root/usr/comma/setup openpilot.system.ui.setup
+    python tools/release/pack.py -o /path/to/agnos-builder/userspace/root/usr/comma/reset openpilot.system.ui.reset
+    python tools/release/pack.py -o /path/to/agnos-builder/userspace/root/usr/comma/updater openpilot.system.ui.updater
     ```
 
 3. Build the kernel and system images:
@@ -121,3 +111,7 @@ Some concrete things on the roadmap:
 - [ ] fully open source
   - [ ] anything from `firmware/`: XBL, ABL, etc.
   - [ ] Weston https://github.com/commaai/agnos-builder/issues/16
+
+## StarPilot image
+
+Version 20.2-starpilot.1 retains the C3 device tree, NVMe and Bluetooth configuration, the StarPilot installer and branding, C3 Python dependencies, and the validated WebRTC ICE fix. Both legacy CFFI and nanobind Raylib bindings are included. Run scripts/validate_starpilot_inputs.sh before building. Image publication and changing the openpilot download manifest are separate release steps.

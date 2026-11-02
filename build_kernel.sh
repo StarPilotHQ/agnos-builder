@@ -66,9 +66,10 @@ build_kernel() {
   export HOSTCC="ccache gcc"
   export HOSTCXX="ccache g++"
 
-  # Avoid LINUX_COMPILE_HOST to change on every run thus invalidating cache
-  # https://patchwork.kernel.org/project/linux-kbuild/patch/1302015561-21047-8-git-send-email-mmarek@suse.cz/
-  export KBUILD_BUILD_HOST="docker"
+  # Keep the kernel banner independent of the host account and container hostname.
+  # Kernel version, compiler, build timestamp and source provenance stay intact.
+  export KBUILD_BUILD_USER="docker"
+  export KBUILD_BUILD_HOST="starpilot"
 
   # Disable all warnings
   export KCFLAGS="-w"

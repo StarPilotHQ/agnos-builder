@@ -25,37 +25,37 @@ expect_hash() {
 }
 
 version="$(tr -d '\n' < "$DIR/VERSION")"
-[[ "$version" == "19.8.1" || "$version" == 19.8.1-* ]]
-expect_hash userspace/usr/comma/setup c5df17f88cb4955eba4102f6791bc4fd7eb32474cb48e598e4e981c3e1d66893
-expect_hash userspace/usr/comma/installer 370d154aaf7e1e9ee433c069348ae885036a9d8cc4c8babfbfae12c8d5b3f2e8
-expect_hash userspace/files/amdgpu/gc_12_0_0_imu.bin.zst 9091ec887822b66b3e49b929a684a9c182057ff92340f2e7b84cba29156af3bf
-expect_hash userspace/files/amdgpu/gc_12_0_0_me.bin.zst 0bf7d4b54ace8af59d5c99c289bbb1b8ce77d11114bb880df308be2c9d5e2638
-expect_hash userspace/files/amdgpu/gc_12_0_0_mec.bin.zst b19544dc8138123d29d25b79116fc4354dd465640408f86c08a4c7ad6b1d32d4
-expect_hash userspace/files/amdgpu/gc_12_0_0_pfp.bin.zst 06b2ba632fa1878a16b78d9734dc8211020d257c140202462f764a156e98daef
-expect_hash userspace/files/amdgpu/gc_12_0_0_rlc.bin.zst c652022ab773a626da090fe448f4abd1775fdd92899bb68b6775c87f619a14b9
-expect_hash userspace/files/amdgpu/psp_14_0_2_sos.bin.zst e81164f81e763d8de70539e7fdcc8ea58aa9b025cf9c95361a4c63bc791177f4
-expect_hash userspace/files/amdgpu/sdma_7_0_0.bin.zst 68add1d0817164f4fde6fd971270e4652814558545cb2400a946004126986576
-expect_hash userspace/files/amdgpu/smu_14_0_2.bin.zst b0a03edf1c7e5a171fafe0710165b6ce90540450d1cf00132d8f0033b6ad2099
+[[ "$version" == "20.2-starpilot.1" ]]
+expect_hash userspace/root/usr/comma/setup c5df17f88cb4955eba4102f6791bc4fd7eb32474cb48e598e4e981c3e1d66893
+expect_hash userspace/root/usr/comma/installer 370d154aaf7e1e9ee433c069348ae885036a9d8cc4c8babfbfae12c8d5b3f2e8
+expect_hash userspace/root/usr/lib/firmware/amdgpu/gc_12_0_0_imu.bin.zst 9091ec887822b66b3e49b929a684a9c182057ff92340f2e7b84cba29156af3bf
+expect_hash userspace/root/usr/lib/firmware/amdgpu/gc_12_0_0_me.bin.zst 0bf7d4b54ace8af59d5c99c289bbb1b8ce77d11114bb880df308be2c9d5e2638
+expect_hash userspace/root/usr/lib/firmware/amdgpu/gc_12_0_0_mec.bin.zst b19544dc8138123d29d25b79116fc4354dd465640408f86c08a4c7ad6b1d32d4
+expect_hash userspace/root/usr/lib/firmware/amdgpu/gc_12_0_0_pfp.bin.zst 06b2ba632fa1878a16b78d9734dc8211020d257c140202462f764a156e98daef
+expect_hash userspace/root/usr/lib/firmware/amdgpu/gc_12_0_0_rlc.bin.zst c652022ab773a626da090fe448f4abd1775fdd92899bb68b6775c87f619a14b9
+expect_hash userspace/root/usr/lib/firmware/amdgpu/psp_14_0_2_sos.bin.zst e81164f81e763d8de70539e7fdcc8ea58aa9b025cf9c95361a4c63bc791177f4
+expect_hash userspace/root/usr/lib/firmware/amdgpu/sdma_7_0_0.bin.zst 68add1d0817164f4fde6fd971270e4652814558545cb2400a946004126986576
+expect_hash userspace/root/usr/lib/firmware/amdgpu/smu_14_0_2.bin.zst b0a03edf1c7e5a171fafe0710165b6ce90540450d1cf00132d8f0033b6ad2099
 expect_hash userspace/webrtc/patches/libdatachannel-build.patch 22bce5ba596589b3333ef7812ca9185a67ef3d772bfa2e90b8e2f411b105b525
 expect_hash userspace/webrtc/patches/libjuice-zero-tiebreaker.patch 37273f1a52757b491a29af6652731504a135f4e3f672daa69846f04292d38958
 
 for path in \
-  userspace/files/bluealsa.service \
-  userspace/files/bluetooth-main.conf \
-  userspace/files/starpilot-bluetooth-radio.service \
-  userspace/files/starpilot-bluetooth.conf \
-  userspace/usr/comma/bluetooth-enabled \
-  userspace/usr/comma/bluetooth-radio \
+  userspace/root/usr/lib/systemd/system/bluealsa.service \
+  userspace/root/etc/bluetooth/main.conf \
+  userspace/root/usr/lib/systemd/system/starpilot-bluetooth-radio.service \
+  userspace/root/etc/dbus-1/system.d/starpilot-bluetooth.conf \
+  userspace/root/usr/comma/bluetooth-enabled \
+  userspace/root/usr/comma/bluetooth-radio \
   userspace/webrtc/build_libdatachannel.sh \
   userspace/webrtc/check_ice.py; do
   [[ -f "$DIR/$path" ]]
 done
 
-grep -Fxq 'HandlePowerKey=ignore' "$DIR/userspace/files/logind.conf"
-grep -Fxq 'HandlePowerKeyLongPress=ignore' "$DIR/userspace/files/logind.conf"
-grep -Fxq 'ExecStop=/usr/comma/bluetooth-radio stop' "$DIR/userspace/files/starpilot-bluetooth-radio.service"
-grep -Fxq 'ExecStopPost=/usr/comma/bluetooth-radio cleanup' "$DIR/userspace/files/starpilot-bluetooth-radio.service"
-grep -Fxq 'Restart=on-failure' "$DIR/userspace/files/starpilot-bluetooth-radio.service"
+grep -Fxq 'HandlePowerKey=ignore' "$DIR/userspace/root/etc/systemd/logind.conf"
+grep -Fxq 'HandlePowerKeyLongPress=ignore' "$DIR/userspace/root/etc/systemd/logind.conf"
+grep -Fxq 'ExecStop=/usr/comma/bluetooth-radio stop' "$DIR/userspace/root/usr/lib/systemd/system/starpilot-bluetooth-radio.service"
+grep -Fxq 'ExecStopPost=/usr/comma/bluetooth-radio cleanup' "$DIR/userspace/root/usr/lib/systemd/system/starpilot-bluetooth-radio.service"
+grep -Fxq 'Restart=on-failure' "$DIR/userspace/root/usr/lib/systemd/system/starpilot-bluetooth-radio.service"
 grep -Fxq 'systemctl disable bluealsa-aplay.service' "$DIR/userspace/services.sh"
 grep -Fxq 'SOURCE_REV="989d29a32968046a002b5b9deb7a00f5012c530c"' "$DIR/userspace/webrtc/build_libdatachannel.sh"
 grep -Fxq 'RUN bash /tmp/agnos/webrtc/build_libdatachannel.sh /tmp/webrtc-wheels /usr/local/venv/bin/python' "$DIR/Dockerfile.agnos"
@@ -81,6 +81,9 @@ if command -v uv >/dev/null 2>&1; then
 fi
 
 kernel_ref="$(git -C "$DIR/agnos-kernel-sdm845" rev-parse HEAD 2>/dev/null || true)"
-[[ "$kernel_ref" == "4ee6b71b8ab9a461248985470726f5917943bc91" ]]
+[[ "$kernel_ref" == "af078e5642c6b1624feca90ec9ba01cd0739ed7f" ]]
 
-echo "StarPilot AGNOS inputs validated (19.8.1, C3/Bluetooth, factory installer, WebRTC ICE fix)."
+echo "StarPilot AGNOS inputs validated (20.2-starpilot.1, C3/Bluetooth, factory installer, WebRTC ICE fix)."
+
+grep -Fq "/dev/nvme0n1 /data/media" "$DIR/userspace/root/etc/fstab"
+grep -Fq "mkdir -p /data/media" "$DIR/userspace/root/usr/comma/fs_setup.sh"

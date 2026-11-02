@@ -6,45 +6,45 @@
 # ################## #
 FROM ubuntu:24.04 AS agnos-compiler
 
-# Common packages
+RUN apt-get update && apt-get install -yq --no-install-recommends build-essential
+
+# ADB daemon using the Android libraries already installed for Ubuntu's adb client.
+FROM agnos-compiler AS agnos-compiler-adbd
 RUN apt-get update && apt-get install -yq --no-install-recommends \
-    build-essential \
-    ca-certificates \
-    ccache \
-    clang \
-    curl \
-    checkinstall \
-    git \
-    pkg-config \
-    wget
+    ca-certificates curl clang android-libbase-dev android-libcutils-dev android-liblog-dev \
+    android-libboringssl-dev libbrotli-dev libcap-dev liblz4-dev libprotobuf-dev protobuf-compiler \
+    libsystemd-dev libzstd-dev
+COPY ./userspace/build_adbd.sh ./userspace/adbd-linux.patch /tmp/agnos/
+RUN /tmp/agnos/build_adbd.sh
 
-# Enable ccache
-ENV PATH="/usr/lib/ccache:$PATH"
-
-# libqmi
-FROM agnos-compiler AS agnos-compiler-libqmi
-COPY ./userspace/compile-libqmi.sh /tmp/agnos/
-RUN --mount=type=cache,target=/root/.ccache,id=libqmi,sharing=shared \
-    /tmp/agnos/compile-libqmi.sh
-
-# ModemManager
-FROM agnos-compiler-libqmi AS agnos-compiler-modemmanager
-COPY ./userspace/compile-modemmanager.sh /tmp/agnos/
-RUN --mount=type=cache,target=/root/.ccache,id=modemmanager,sharing=shared \
-    /tmp/agnos/compile-modemmanager.sh
-
-# qtwayland5
-FROM agnos-compiler AS agnos-compiler-qtwayland5
-COPY ./userspace/qtwayland/*.deb /tmp/agnos/
-COPY ./userspace/compile-qtwayland5.sh /tmp/agnos/
-COPY ./userspace/qtwayland/patch* /tmp/agnos/
-RUN --mount=type=cache,target=/root/.ccache,id=qtwayland5,sharing=shared \
-    /tmp/agnos/compile-qtwayland5.sh
+# Qualcomm graphics without Wayland or OpenCL runtime dependencies
+FROM agnos-compiler AS agnos-compiler-graphics
+RUN apt-get update && apt-get install -yq --no-install-recommends patchelf
+COPY ./userspace/graphics/ /tmp/agnos/graphics-src/
+RUN mkdir -p /tmp/agnos/graphics && \
+    cp /tmp/agnos/graphics-src/libgbm.so /tmp/agnos/graphics/ && \
+    cp /tmp/agnos/graphics-src/libeglSubDriverWayland.so.patched /tmp/agnos/graphics/libeglSubDriverWayland.so && \
+    cd /tmp/agnos/graphics && \
+    gcc -shared -fPIC -Os -s -Wall -Wextra -Werror -Wl,-z,defs -Wl,-z,relro,-z,now \
+      -Wl,-soname,libagnos-wayland-stubs.so -o libagnos-wayland-stubs.so /tmp/agnos/graphics-src/stubs.c && \
+    gcc -shared -fPIC -Os -s -Wall -Wextra -Werror -Wl,-z,defs -Wl,-z,relro,-z,now \
+      -Wl,-soname,libCB.so -o libCB.so /tmp/agnos/graphics-src/opencl_stubs.c && \
+    nm -D --defined-only libagnos-wayland-stubs.so | \
+      awk '$3 ~ /^agnos_/ { name = $3; sub(/^agnos_/, "", name); print name, $3 }' > /tmp/agnos/graphics-symbols.map && \
+    for lib in libgbm.so libeglSubDriverWayland.so; do \
+      patchelf --rename-dynamic-symbols /tmp/agnos/graphics-symbols.map \
+        --remove-needed libwayland-client.so.0 --remove-needed libwayland-server.so.0 \
+        --remove-needed libwayland-egl.so.1 --remove-needed libffi.so.6 \
+        --remove-needed libpcre.so.1 \
+        --add-needed libagnos-wayland-stubs.so "$lib" || exit 1; \
+    done
 
 # ################## #
 # ###### Base ###### #
 # ################## #
 FROM scratch AS agnos-base
+
+ENV CC=clang CXX=clang++
 
 # Add Ubuntu Base image files
 ARG UBUNTU_BASE_IMAGE
@@ -53,33 +53,17 @@ ADD ${UBUNTU_BASE_IMAGE} /
 # Build folder
 RUN mkdir -p /tmp/agnos
 
-# Stop on error
-RUN set -xe
-
 ARG USERNAME=comma
 
 # Base system setup
 RUN echo "resolvconf resolvconf/linkify-resolvconf boolean false" | debconf-set-selections
-COPY ./userspace/base_setup.sh /tmp/agnos
+COPY ./userspace/base_setup.sh ./userspace/openpilot_dependencies.sh /tmp/agnos/
 RUN /tmp/agnos/base_setup.sh
 
-# Install openpilot dependencies
-COPY ./userspace/openpilot_dependencies.sh /tmp/agnos/
-RUN /tmp/agnos/openpilot_dependencies.sh
+# Install openpilot Python dependencies
 COPY ./userspace/openpilot_python_dependencies.sh /tmp/agnos/
 RUN /tmp/agnos/openpilot_python_dependencies.sh
 
-# Install old Qt 5.12.8, libwayland 1.9.0-1 and deps
-COPY ./userspace/qtwayland/*.deb /tmp/agnos/
-RUN apt-get -o Dpkg::Options::="--force-overwrite" install -yq \
-    /tmp/agnos/qt-5.12.8.deb \
-    /tmp/agnos/libwayland-1.9.0-1.deb \
-    /tmp/agnos/libicu66_66.1-2ubuntu2.1_arm64.deb \
-    /tmp/agnos/libssl1.1_1.1.1f-1ubuntu2.22_arm64.deb \
-    /tmp/agnos/libffi6_3.2.1-8_arm64.deb
-
-# Build the pinned WebRTC backend with the Connect ICE fix. Keep its build
-# environment out of the final image; only the validated wheel is copied below.
 FROM agnos-base AS agnos-compiler-webrtc
 RUN apt-get update && apt-get install -yq --no-install-recommends python3-dev
 COPY ./userspace/webrtc /tmp/agnos/webrtc
@@ -88,36 +72,30 @@ RUN bash /tmp/agnos/webrtc/build_libdatachannel.sh /tmp/webrtc-wheels /usr/local
 # ################### #
 # ###### AGNOS ###### #
 # ################### #
-FROM agnos-base
+FROM agnos-base AS agnos
 
-# Hardware setup
-RUN mkdir -p /tmp/agnos/debs
-COPY ./userspace/debs /tmp/agnos/debs
-COPY ./userspace/hardware_setup.sh /tmp/agnos
-RUN /tmp/agnos/hardware_setup.sh
-RUN mv /data/persist /system/ && rm -rf /data/*
+COPY --from=agnos-compiler-adbd /tmp/agnos/adbd /usr/comma/adbd
+COPY --from=agnos-compiler-adbd /tmp/adbd-build/packages/modules/adb/NOTICE /usr/share/doc/adbd/NOTICE
+COPY --from=agnos-compiler-graphics /tmp/agnos/graphics/ /usr/lib/aarch64-linux-gnu/
 
-COPY --from=agnos-compiler-libqmi /tmp/libqmi.deb /tmp/
-COPY --from=agnos-compiler-modemmanager /tmp/modemmanager.deb /tmp/
-
-RUN cd /tmp && \
-    apt-get update && \
+# modem.service runs the packaged modem.py (AT + IPv4 PPP).
+# NetworkManager still requires libmm-glib0 for Wi-Fi/Ethernet operation.
+RUN apt-get update && \
     apt-get install -yq --no-install-recommends \
     python3 \
     python3-dev \
-    gir1.2-qmi-1.0 \
     libglib2.0-dev \
-    libqmi-glib5 \
     libc6 \
     libglib2.0-0t64 \
     libgudev-1.0-0 \
     libmm-glib0 \
     libpolkit-gobject-1-0 \
     libsystemd0 \
-    polkitd \
-    mobile-broadband-provider-info && \
-    apt-get -o Dpkg::Options::="--force-overwrite" install -yq ./libqmi.deb && \
-    apt-get -o Dpkg::Options::="--force-overwrite" install -yq ./modemmanager.deb
+    android-liblog \
+    libjson-c5 \
+    patchelf \
+    polkitd && \
+    test ! -e /lib/systemd/system/ModemManager.service
 
 ARG XDG_DATA_HOME="/usr/local"
 
@@ -133,8 +111,6 @@ RUN source $XDG_DATA_HOME/venv/bin/activate && \
       --no-install-package teleoprtc \
       --no-install-package tinygrad
 
-# Install after the frozen sync so the registry wheel cannot replace the fix.
-# Leave every other locked dependency unchanged. Test the actual runtime too.
 COPY --from=agnos-compiler-webrtc /tmp/webrtc-wheels /tmp/agnos/webrtc-wheels
 COPY ./userspace/webrtc/check_ice.py /usr/comma/tests/webrtc_ice_check.py
 RUN uv pip install --python $XDG_DATA_HOME/venv/bin/python --no-index --no-deps \
@@ -144,107 +120,59 @@ RUN uv pip install --python $XDG_DATA_HOME/venv/bin/python --no-index --no-deps 
 # Install nice to haves
 COPY ./userspace/install_extras.sh /tmp/agnos/
 RUN /tmp/agnos/install_extras.sh
+RUN /usr/comma/adbd --version
 
-COPY --from=agnos-compiler-qtwayland5 /tmp/qtwayland5.deb /tmp/qtwayland5.deb
-RUN cd /tmp && apt-get -o Dpkg::Options::="--force-overwrite" install -yq --allow-downgrades ./qtwayland5.deb
+# Root filesystem overlay, all files at their final paths.
+# tar keeps the ownership and permissions of existing directories, COPY resets them.
+# --mode=go-w makes the result independent of the umask of the checkout.
+RUN rm -r /etc/update-motd.d/*
+RUN --mount=type=bind,source=userspace/root,target=/tmp/agnos/root \
+    set -o pipefail && \
+    tar -C /tmp/agnos/root --owner=0 --group=0 --mode=go-w -cf - . | tar -C / --no-overwrite-dir -xf -
+# Compile the vendor Ghostty definition supplied by the root filesystem overlay.
+RUN tic -x -o /usr/share/terminfo /usr/share/terminfo/ghostty.terminfo && \
+    rm /usr/share/terminfo/ghostty.terminfo
+COPY ./userspace/root/home/$USERNAME/.config/ /root/.config
+RUN mkdir -p /usr/lib/firmware/qca
 
-# Patched libeglSubDriverWayland with fixed nullptr deref in CommitBuffer
-COPY ./userspace/files/libeglSubDriverWayland.so.patched /lib/aarch64-linux-gnu/libeglSubDriverWayland.so
+# These vendor libraries retain unused PCRE dependencies from their original GLib build.
+RUN cd /usr/lib/aarch64-linux-gnu && \
+    for lib in libdiag.so.1 libconfigdb.so.0 libqmi_cci.so.1 libxml.so.0 libqmi_client_qmux.so.1 libdsutils.so.1; do \
+      patchelf --remove-needed libpcre.so.1 "$lib" || exit 1; \
+    done && \
+    patchelf --replace-needed libjson-c.so.2 libjson-c.so.5 /usr/bin/pdmappersvc && \
+    apt-get purge -y patchelf
 
-COPY ./userspace/home/ /home/$USERNAME/
-COPY ./userspace/home/.config/ /root/.config
-RUN chown -R $USERNAME: /home/$USERNAME/.config
-
-# populate /lib
-COPY ./userspace/files/*.path /lib/systemd/system/
-COPY ./userspace/files/*.mount /lib/systemd/system/
-COPY ./userspace/files/*.service /lib/systemd/system/
-COPY ./userspace/files/*.timer /lib/systemd/system/
-COPY ./userspace/files/serial-getty@ttyMSM0_override.conf /lib/systemd/system/serial-getty@ttyMSM0.service.d/serial-getty@ttyMSM0_override.conf
-COPY ./userspace/files/ssh_override.conf /lib/systemd/system/ssh.service.d/override.conf
-COPY ./userspace/firmware/* /lib/firmware/
-COPY ./userspace/files/bluetooth-main.conf /etc/bluetooth/main.conf
-COPY ./userspace/files/starpilot-bluetooth.conf /etc/dbus-1/system.d/starpilot-bluetooth.conf
-
-# populate /etc
-COPY ./userspace/files/fstab /etc
-COPY ./userspace/files/profile /etc/profile
-COPY ./userspace/files/comma-polkit.rules /etc/polkit-1/rules.d/
-COPY ./userspace/files/*.rules /etc/udev/rules.d/
-COPY ./userspace/files/ssh*_config /etc/ssh/
-COPY ./userspace/files/logrotate.conf /etc/
-COPY ./userspace/files/rsyslog /etc/logrotate.d/
-RUN chmod 644 /etc/logrotate.conf
+RUN chown -R $USERNAME: /home/$USERNAME
 RUN touch -r /lib/systemd/systemd /etc/fstab
 
-RUN mkdir -p /lib/firmware/qca
-
-# populate /usr
-COPY ./userspace/usr/comma/ /usr/$USERNAME/
-COPY ./userspace/usr/share/fonts/* /usr/share/fonts/
-COPY ./userspace/libs/* /usr/lib/aarch64-linux-gnu/
-COPY ./userspace/libs32/* /usr/lib/arm-linux-gnueabihf/
 COPY ./output/linux-headers/include/ /usr/include/
-COPY ./userspace/files/amdgpu/ /usr/lib/firmware/amdgpu/
+
+COPY ./userspace/irsc_util.c /tmp/agnos/
+RUN clang -O2 -Wall -Wextra -Werror -o /usr/bin/irsc_util /tmp/agnos/irsc_util.c && rm /tmp/agnos/irsc_util.c
 
 COPY ./userspace/power_burn/power_burn_max.c /tmp/agnos/
-RUN gcc -O2 -o /home/$USERNAME/power_burn_max /tmp/agnos/power_burn_max.c \
-    -lOpenCL -lpthread -ldl && rm /tmp/agnos/power_burn_max.c \
+RUN clang -O2 -o /home/$USERNAME/power_burn_max /tmp/agnos/power_burn_max.c \
+    -lpthread && rm /tmp/agnos/power_burn_max.c \
     && chown $USERNAME: /home/$USERNAME/power_burn_max
-
-# Weston with hacked touch rotate and color correction
-COPY ./userspace/files/weston /usr/bin/weston
-COPY ./userspace/files/gl-renderer.so /usr/lib/arm-linux-gnueabihf/weston
 
 # Setup systemd services
 COPY ./userspace/services.sh /tmp/agnos
 RUN /tmp/agnos/services.sh
 
-# MOTD
-RUN rm -r /etc/update-motd.d/*
-COPY --chown=root:root ./userspace/motd/* /etc/update-motd.d/
-
-# Let NetworkManager manage eth0
-COPY ./userspace/files/10-globally-managed-devices.conf /etc/NetworkManager/conf.d/10-globally-managed-devices.conf
-COPY ./userspace/files/NetworkManager.conf /etc/NetworkManager/NetworkManager.conf
-
-# Add cellular connections
-COPY ./userspace/files/*.nmconnection /usr/lib/NetworkManager/system-connections/
-RUN chmod 600 /usr/lib/NetworkManager/system-connections/*.nmconnection
-
 # Prefer ipv4 over ipv6
 RUN echo "precedence ::ffff:0:0/96 100" >> /etc/gai.conf
 
-# Don't let logind delete /dev/shm
-COPY ./userspace/files/logind.conf /etc/systemd/logind.conf
-
-# Retry NTP sync every 10s instead of 30s for faster time sync after network connects
-COPY ./userspace/files/timesyncd.conf /etc/systemd/timesyncd.conf
-
-# Copy Avahi daemon override
-COPY ./userspace/files/avahi-override.conf /etc/systemd/system/avahi-daemon.service.d/override.conf
-
-# Prevent polkitd memory leak from getting out of hand by restarting it every ~day
-COPY ./userspace/files/polkit-override.conf /etc/systemd/system/polkit.service.d/override.conf
-
-# Remove qt network bearer plugins
-RUN rm -rf /usr/lib/aarch64-linux-gnu/qt5/plugins/bearer
-
-# Add iptable rules to block incoming traffic on wwan0
-COPY ./userspace/etc/iptables/rules.v4 /etc/iptables/rules.v4
-
-# Run ModemManager in debug mode to allow AT commands
-COPY ./userspace/files/ModemManager.service /lib/systemd/system/
-RUN systemctl enable ModemManager
-
-# Add more T-Mobile networks to mobile-broadband-provider-info (do we still need the package?)
-COPY ./userspace/files/serviceproviders.xml /usr/share/mobile-broadband-provider-info/serviceproviders.xml
-
-# Copy extra FW, rest comes from debs
-COPY ./userspace/files/CAMERA_ICP.elf /usr/lib/firmware
+# Block incoming cellular traffic, including modem.py's PPP interface.
+# The SDM845 kernel supports xtables, not Ubuntu's default nftables backend.
+RUN update-alternatives --set iptables /usr/sbin/iptables-legacy && \
+    update-alternatives --set ip6tables /usr/sbin/ip6tables-legacy
 
 # Setup hostname resolution for our custom hostname
 RUN sed -i 's/hosts:          files dns myhostname/hosts:          files myhostname dns/g' /etc/nsswitch.conf
+
+COPY ./userspace/trim.sh /tmp/agnos/
+RUN /tmp/agnos/trim.sh
 
 # keep this last
 RUN ldconfig
@@ -264,9 +192,6 @@ RUN mkdir -p /tmptmp
 COPY ./userspace/readonly_setup.sh /tmptmp/readonly_setup.sh
 RUN /tmptmp/readonly_setup.sh && rm -rf /tmptmp
 
-# copy at the end, after all apt usage
-COPY ./userspace/files/apt.conf /etc/apt/apt.conf
-
 # copy version file
 COPY VERSION /VERSION
 
@@ -279,3 +204,42 @@ RUN rm -rf /usr/share/icons/* && \
     rm -rf /home/$USERNAME/.cache && \
     rm -rf /root/.cache && \
     apt-get clean
+
+# ################## #
+# ##### Image ###### #
+# ################## #
+# Build the system image in BuildKit, so only the sparse image leaves the builder.
+FROM --platform=$BUILDPLATFORM ubuntu:20.04 AS agnos-image-tools
+RUN apt-get update && \
+    apt-get install -yq --no-install-recommends \
+    android-sdk-libsparse-utils \
+    e2fsprogs \
+    libcap2-bin \
+    zstd \
+    && rm -rf /var/lib/apt/lists/*
+
+FROM agnos-image-tools AS agnos-image-build
+# the partition is 10G, but openpilot's updater didn't always handle the full size
+# openpilot fix, shipped in 0.9.8 (8/18/24): https://github.com/commaai/openpilot/pull/33320
+# Package-install helpers expand the read-only rootfs before writing.
+ARG ROOTFS_IMAGE_SIZE=4500M
+ARG GIT_HASH
+ARG BUILD_DATETIME
+# Compress the image for remote builders, where the download is the bottleneck
+ARG ZSTD
+# These files are bind mounted in containers, so they can only be set here.
+RUN --mount=type=bind,from=agnos,target=/rootfs,rw \
+    cd /rootfs && \
+    ln -sf /proc/sys/kernel/hostname etc/hostname && \
+    printf "127.0.0.1    localhost.localdomain localhost\n127.0.0.1    comma\n" > etc/hosts && \
+    ln -sf /run/systemd/resolve/stub-resolv.conf etc/resolv.conf && \
+    setcap cap_net_raw+ep bin/ping && \
+    printf "%s\n%s\n" "$GIT_HASH" "$BUILD_DATETIME" > BUILD && \
+    mkdir /out && \
+    mkfs.ext4 -q -d /rootfs /tmp/system.img $ROOTFS_IMAGE_SIZE && \
+    img2simg /tmp/system.img /out/system.img && \
+    rm /tmp/system.img && \
+    if [ -n "$ZSTD" ]; then zstd -q -T0 -9 --rm /out/system.img; fi
+
+FROM scratch AS agnos-image
+COPY --from=agnos-image-build /out/ /

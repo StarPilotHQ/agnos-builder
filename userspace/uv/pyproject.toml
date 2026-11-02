@@ -16,12 +16,33 @@ dependencies = [
   "tinymesa==25.2.7.2",
 
   "pycapnp==2.1.0",  # 2.2 introduces a memory leak due to cyclic references
-  "crcmod==1.7",  # C3 panda serial protocol
-  "pyserial==3.5",  # C3 panda serial transport
-  "kaitaistruct==0.11",  # C3 firmware parsing
 
-  # StarPilot runtime (kept explicit so a clean AGNOS build contains the
-  # same managed-venv surface as the validated 19.6.13 image)
+  # hardware.py
+  "dbus-python",
+  # amplifier.py
+  "smbus2",
+  # lpa.py, imported by the AGNOS updater in older openpilot releases
+  "pyserial==3.5",
+
+  # provisioning
+  "pyusb",
+  # pandad
+  "libusb1 ==3.1.0", # recent versions segfault on comma three
+  "paramiko",
+
+  # extra nice-to-haves
+  "evdev",
+  "ipython",
+  "py-spy",
+  "spidev2",
+  "flaky",
+  "matplotlib",
+  "nanobind",
+
+  # GUIs
+  "comma-deps-raylib",
+  "crcmod==1.7",
+  "kaitaistruct==0.11",
   "aiohappyeyeballs==2.7.1",
   "aiohttp==3.12.15",
   "aiosignal==1.4.0",
@@ -38,28 +59,6 @@ dependencies = [
   "typing-extensions==4.16.0",
   "xattr==1.2.0",
   "yarl==1.24.5",
-
-  # hardware.py
-  "dbus-python",
-  # amplifier.py
-  "smbus2",
-
-  # provisioning
-  "pyusb",
-  # pandad
-  "libusb1 ==3.1.0", # recent versions segfault on comma three
-  "paramiko",
-
-  # extra nice-to-haves
-  "evdev",
-  "ipython",
-  "py-spy",
-  "spidev2",
-  "flaky",
-  "matplotlib",
-
-  # GUIs
-  "comma-deps-raylib",
 ]
 
 [tool.uv.sources]

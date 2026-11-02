@@ -1,6 +1,6 @@
 # Connect ICE compatibility
 
-AGNOS 19.8.1 permanently includes the native-library hotfix verified with live
+AGNOS 19.8.2 permanently includes the native-library hotfix verified with live
 Connect video on a comma device. No runtime bind mount or openpilot-side package
 installation is needed on this image.
 
