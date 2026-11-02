@@ -206,6 +206,9 @@ RUN rm -rf /usr/share/icons/* && \
     rm -rf /root/.cache && \
     apt-get clean
 
+COPY ./userspace/check_starpilot_runtime.py /tmp/check_starpilot_runtime.py
+RUN /usr/local/venv/bin/python /tmp/check_starpilot_runtime.py && rm /tmp/check_starpilot_runtime.py
+
 # ################## #
 # ##### Image ###### #
 # ################## #
