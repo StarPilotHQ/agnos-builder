@@ -133,10 +133,12 @@ prepare() {
 
   mkdir -p "$FIRMWARE_MOUNT" "$FIRMWARE_BIND" "$BLUETOOTH_STATE" "$BLUETOOTH_BIND"
   chmod 700 "$BLUETOOTH_STATE"
+  mountpoint -q "$BLUETOOTH_BIND" || mount --bind "$BLUETOOTH_STATE" "$BLUETOOTH_BIND"
+  # Queue bluetoothd early, in the background, so a busy systemd can't stall bring-up.
+  systemctl --no-block start bluetooth.service >/dev/null 2>&1 &
   mountpoint -q "$FIRMWARE_MOUNT" || mount -o ro,nosuid,nodev,noexec "$device" "$FIRMWARE_MOUNT"
   mountpoint -q "$FIRMWARE_BIND" || mount --bind "$FIRMWARE_MOUNT/image" "$FIRMWARE_BIND"
   mount -o remount,bind,ro,nosuid,nodev,noexec "$FIRMWARE_BIND"
-  mountpoint -q "$BLUETOOTH_BIND" || mount --bind "$BLUETOOTH_STATE" "$BLUETOOTH_BIND"
   # The first bring-up after boot starts from off; later ones keep the drain wait.
   if [[ -e "$STATE_DIR/brought-up" ]]; then
     power 0 || true
@@ -155,7 +157,8 @@ ready() {
   done
   [[ -e /sys/class/bluetooth/hci0 ]]
 
-  systemctl start bluetooth.service
+  # Usually already running; start it only if not.
+  busctl --system status org.bluez >/dev/null 2>&1 || systemctl start bluetooth.service
   for _ in $(seq 1 100); do
     busctl --system status org.bluez >/dev/null 2>&1 && break
     sleep 0.1
@@ -186,6 +189,11 @@ cleanup() {
 
 case "${1:-}" in
   prepare) prepare ;;
+  # prepare and btattach in one process, so a systemd reload can't stall bring-up.
+  start)
+    prepare
+    exec /usr/bin/btattach -B /dev/ttyHS1 -P qca -S 115200
+    ;;
   ready) ready ;;
   stop) stop ;;
   cleanup) cleanup ;;
