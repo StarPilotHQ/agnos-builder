@@ -12,6 +12,7 @@ apt-get install --no-install-recommends -yq \
     libgbm-dev \
     libglib2.0-0t64 \
     libportaudio2 \
+    libzmq5 \
     portaudio19-dev \
     libasound2-dev \
     make \

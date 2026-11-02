@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Check required image dependencies without opening display or audio devices."""
+import ctypes
 import importlib
 import importlib.metadata
 import importlib.util
@@ -10,11 +11,17 @@ import sys
 
 assert Path('/VERSION').read_text().strip() == '20.2-starpilot.1'
 for name in ('crcmod', 'serial', 'kaitaistruct', 'capnp', 'aiohttp', 'jsonrpc', 'mapbox_earcut',
-             'onnx', 'cv2', 'pyaudio', 'xattr'):
+             'onnx', 'cv2', 'pyaudio', 'xattr', 'zmq'):
   importlib.import_module(name)
 assert importlib.metadata.version('pycapnp') == '2.1.0'
 assert importlib.metadata.version('libusb1') == '3.1.0'
 assert importlib.metadata.version('comma-deps-raylib') == '6.0.0.1.post106'
+
+for name in ('libzmq.so.5', 'libusb-1.0.so.0', 'libstdc++.so.6', 'libgcc_s.so.1', 'libc.so.6', 'libm.so.6', 'libzstd.so.1'):
+  ctypes.CDLL(name)
+ffmpeg = importlib.import_module('ffmpeg')
+for name in ('libavformat.so.61', 'libavcodec.so.61', 'libavutil.so.59'):
+  ctypes.CDLL(str(Path(ffmpeg.LIB_DIR) / name))
 
 for name in ('pyray', 'raylib_nb'):
   code = f'import {name} as r; v=r.Vector2(2,3); assert v.x==2 and v.y==3; c=r.Color(1,2,3,4); assert c.a==4'
