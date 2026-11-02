@@ -21,17 +21,20 @@ PY
 }
 
 # Power the controller on, wake it, and wait until it answers before btattach takes the port.
-bring_up() {
-  /usr/bin/python3 - <<'PY'
+BRING_UP_PY=$(cat <<'PY'
 import fcntl
 import os
 import select
 import struct
+import subprocess
+import sys
 import termios
 import time
 
 UART = "/dev/ttyHS1"
+BTATTACH = ["/usr/bin/btattach", "-B", UART, "-P", "qca", "-S", "115200"]
 VERSION_REQUEST = bytes([0x01, 0x00, 0xFC, 0x01, 0x19])  # EDL patch version request
+SET_3MBAUD = bytes([0x01, 0x48, 0xFC, 0x01, 0x0E])  # HCI 0xFC48, QCA_BAUDRATE_3000000
 SETTLE_S = (0.0, 0.25, 0.75, 1.5)  # wait before each try
 ANSWER_TIMEOUT_S = 0.3
 
@@ -94,36 +97,75 @@ def answer(fd):
   return None
 
 
-def main():
+def to_3mbaud(fd):
+  """Switch the controller to 3 Mbaud and confirm it answers there."""
+  for _ in range(3):
+    configure(fd, termios.B115200)
+    rts(fd, False)
+    termios.tcflush(fd, termios.TCIOFLUSH)
+    os.write(fd, SET_3MBAUD)
+    termios.tcdrain(fd)
+    time.sleep(0.01)
+    configure(fd, termios.B3000000)
+    rts(fd, True)
+    time.sleep(0.05)
+    if answer(fd) is not None:
+      return True
+  return False
+
+
+def main(start):
   power(1)
   powered = time.monotonic()
+  held = None
   for attempt, settle in enumerate(SETTLE_S, 1):
     time.sleep(settle)
     fd = os.open(UART, os.O_RDWR | os.O_NOCTTY)
+    event = None
     try:
       pulse(fd)
       try:
         event = answer(fd)
+        if start and event is not None:
+          if to_3mbaud(fd):
+            print("bluetooth-radio: controller switched to 3 Mbaud ahead of btattach", flush=True)
+          else:
+            pulse(fd)  # back to 115200
+            event = answer(fd)
+            print("bluetooth-radio: could not confirm 3 Mbaud; left at 115200 for btattach", flush=True)
       except OSError as error:  # a failed check must not fail the unit
         print(f"bluetooth-radio: try {attempt} could not ask the controller: {error}", flush=True)
-        event = None
     finally:
       try:
         termios.tcflush(fd, termios.TCIOFLUSH)  # nothing stale left for btattach
       except OSError:
         pass
-      os.close(fd)
+      if start and event is not None:
+        held = fd
+      else:
+        os.close(fd)
     if event is not None:
       print(f"bluetooth-radio: controller answered on try {attempt}, {time.monotonic() - powered:.2f} s after power on: {event.hex()}", flush=True)
-      return
-  print(f"bluetooth-radio: no answer after {len(SETTLE_S)} tries; leaving it to btattach", flush=True)
+      break
+  else:
+    print(f"bluetooth-radio: no answer after {len(SETTLE_S)} tries; leaving it to btattach", flush=True)
+  if start:
+    subprocess.run(["rfkill", "unblock", "bluetooth"], check=True)
+    if held is not None:
+      # Keep the port open into btattach (each close takes 0.5 s).
+      os.set_inheritable(held, True)
+    os.execv(BTATTACH[0], BTATTACH)
 
 
-main()
+main(sys.argv[1:] == ["start"])
 PY
+)
+
+bring_up() {
+  /usr/bin/python3 -c "$BRING_UP_PY"
 }
 
-prepare() {
+setup() {
   model="$(tr -d '\0' </sys/firmware/devicetree/base/model)"
   [[ "$model" == *tici* || "$model" == *tizi* || "$model" == *mici* ]]
 
@@ -146,6 +188,10 @@ prepare() {
   fi
   mkdir -p "$STATE_DIR"
   touch "$STATE_DIR/brought-up"
+}
+
+prepare() {
+  setup
   bring_up
   rfkill unblock bluetooth
 }
@@ -191,8 +237,8 @@ case "${1:-}" in
   prepare) prepare ;;
   # prepare and btattach in one process, so a systemd reload can't stall bring-up.
   start)
-    prepare
-    exec /usr/bin/btattach -B /dev/ttyHS1 -P qca -S 115200
+    setup
+    exec /usr/bin/python3 -c "$BRING_UP_PY" start
     ;;
   ready) ready ;;
   stop) stop ;;
