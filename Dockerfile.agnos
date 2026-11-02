@@ -65,7 +65,8 @@ COPY ./userspace/openpilot_python_dependencies.sh /tmp/agnos/
 RUN /tmp/agnos/openpilot_python_dependencies.sh
 
 FROM agnos-base AS agnos-compiler-webrtc
-RUN apt-get update && apt-get install -yq --no-install-recommends python3-dev
+RUN apt-get update && apt-get install -yq --no-install-recommends python3-dev clang-tools-20 && \
+    ln -s /usr/lib/llvm-20/bin/clang-scan-deps /usr/local/bin/clang-scan-deps
 COPY ./userspace/webrtc /tmp/agnos/webrtc
 RUN bash /tmp/agnos/webrtc/build_libdatachannel.sh /tmp/webrtc-wheels /usr/local/venv/bin/python
 
