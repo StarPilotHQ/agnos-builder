@@ -32,7 +32,7 @@ import time
 
 UART = "/dev/ttyHS1"
 VERSION_REQUEST = bytes([0x01, 0x00, 0xFC, 0x01, 0x19])  # EDL patch version request
-SETTLE_S = (0.0, 0.25, 1.0, 2.0)  # wait before each try
+SETTLE_S = (0.0, 0.25, 0.75, 1.5)  # wait before each try
 ANSWER_TIMEOUT_S = 0.3
 
 
@@ -61,47 +61,37 @@ def rts(fd, on):
   fcntl.ioctl(fd, termios.TIOCMBIS if on else termios.TIOCMBIC, struct.pack("I", termios.TIOCM_RTS))
 
 
-def send(speed, value):
-  fd = os.open(UART, os.O_RDWR | os.O_NOCTTY)
-  try:
-    configure(fd, speed)
-    rts(fd, False)
-    os.write(fd, bytes([value]))
-    termios.tcdrain(fd)
-    rts(fd, True)
-  finally:
-    os.close(fd)
+def send(fd, speed, value):
+  configure(fd, speed)
+  rts(fd, False)
+  os.write(fd, bytes([value]))
+  termios.tcdrain(fd)
+  rts(fd, True)
 
 
-def pulse():
-  # WCN3990 power pulses: off at 2400 baud, then on at 115200.
-  send(termios.B2400, 0xC0)
+def pulse(fd):
+  # WCN3990 power pulses on one open port: off at 2400 baud, then on at 115200.
+  send(fd, termios.B2400, 0xC0)
   time.sleep(0.001)
-  send(termios.B115200, 0xFC)
+  send(fd, termios.B115200, 0xFC)
   time.sleep(0.1)
 
 
-def answer():
+def answer(fd):
   """Ask for the patch version; return the vendor event or None."""
-  fd = os.open(UART, os.O_RDWR | os.O_NOCTTY)
-  try:
-    configure(fd, termios.B115200)
-    rts(fd, True)
-    termios.tcflush(fd, termios.TCIOFLUSH)
-    os.write(fd, VERSION_REQUEST)
-    termios.tcdrain(fd)
-    received = b""
-    deadline = time.monotonic() + ANSWER_TIMEOUT_S
-    while (remaining := deadline - time.monotonic()) > 0:
-      if select.select([fd], [], [], remaining)[0]:
-        received += os.read(fd, 256)
-      start = received.find(b"\x04\xff")
-      if start >= 0 and len(received) >= start + 3 and len(received) >= start + 3 + received[start + 2]:
-        return received[start:start + 3 + received[start + 2]]
-    return None
-  finally:
-    termios.tcflush(fd, termios.TCIOFLUSH)
-    os.close(fd)
+  rts(fd, True)
+  termios.tcflush(fd, termios.TCIOFLUSH)
+  os.write(fd, VERSION_REQUEST)
+  termios.tcdrain(fd)
+  received = b""
+  deadline = time.monotonic() + ANSWER_TIMEOUT_S
+  while (remaining := deadline - time.monotonic()) > 0:
+    if select.select([fd], [], [], remaining)[0]:
+      received += os.read(fd, 256)
+    start = received.find(b"\x04\xff")
+    if start >= 0 and len(received) >= start + 3 and len(received) >= start + 3 + received[start + 2]:
+      return received[start:start + 3 + received[start + 2]]
+  return None
 
 
 def main():
@@ -109,12 +99,20 @@ def main():
   powered = time.monotonic()
   for attempt, settle in enumerate(SETTLE_S, 1):
     time.sleep(settle)
-    pulse()
+    fd = os.open(UART, os.O_RDWR | os.O_NOCTTY)
     try:
-      event = answer()
-    except OSError as error:  # a failed check must not fail the unit
-      print(f"bluetooth-radio: try {attempt} could not ask the controller: {error}", flush=True)
-      event = None
+      pulse(fd)
+      try:
+        event = answer(fd)
+      except OSError as error:  # a failed check must not fail the unit
+        print(f"bluetooth-radio: try {attempt} could not ask the controller: {error}", flush=True)
+        event = None
+    finally:
+      try:
+        termios.tcflush(fd, termios.TCIOFLUSH)  # nothing stale left for btattach
+      except OSError:
+        pass
+      os.close(fd)
     if event is not None:
       print(f"bluetooth-radio: controller answered on try {attempt}, {time.monotonic() - powered:.2f} s after power on: {event.hex()}", flush=True)
       return
