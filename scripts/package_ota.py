@@ -2,7 +2,6 @@
 import json
 import os
 import hashlib
-import shutil
 import struct
 import subprocess
 from copy import deepcopy
@@ -129,7 +128,9 @@ def process_file(entry):
   sha256 = file_checksum(entry.path)
   hash = hash_raw = sha256.hexdigest()
 
-  if struct.unpack("<I", open(entry.path, 'rb').read(4))[0] == 0xED26FF3A:
+  with open(entry.path, 'rb') as image:
+    is_sparse = struct.unpack("<I", image.read(4))[0] == 0xED26FF3A
+  if is_sparse:
     hash_raw, ondevice_hash, size = ondevice_checksum_sparse(entry.path, entry.ota)
   else:
     sha256.update(b'\x00' * ((SECTOR_SIZE - (size % SECTOR_SIZE)) % SECTOR_SIZE))
@@ -150,14 +151,6 @@ def process_file(entry):
     "has_ab": entry.has_ab,
     "ondevice_hash": ondevice_hash,
   }
-
-  if entry.name == "system":
-    ret["alt"] = {
-      "hash": hash_raw,
-      "url": "{remote_url}/" + xz_fn.name.replace(".img.xz", ".img"),
-      "size": size,
-    }
-    shutil.copy(entry.path, OTA_OUTPUT_DIR / f"{entry.path.stem}-{hash_raw}.img")
 
   if isinstance(entry, GPT):
     ret["gpt"] = {
