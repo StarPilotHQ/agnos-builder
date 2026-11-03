@@ -6,8 +6,7 @@ ConditionPathExists=/sys/firmware/devicetree/base/model
 [Service]
 Type=simple
 ExecCondition=/usr/comma/bluetooth-enabled
-ExecStartPre=/usr/comma/bluetooth-radio prepare
-ExecStart=/usr/bin/btattach -B /dev/ttyHS1 -P qca -S 115200
+ExecStart=/usr/comma/bluetooth-radio start
 ExecStartPost=/usr/comma/bluetooth-radio ready
 ExecStop=/usr/comma/bluetooth-radio stop
 ExecStopPost=/usr/comma/bluetooth-radio cleanup
