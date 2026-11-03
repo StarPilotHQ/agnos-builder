@@ -114,4 +114,4 @@ Some concrete things on the roadmap:
 
 ## StarPilot image
 
-Version 20.2-starpilot.1 retains the C3 device tree, NVMe and Bluetooth configuration, the StarPilot installer and branding, C3 Python dependencies, and the validated WebRTC ICE fix. Both legacy CFFI and nanobind Raylib bindings are included. Run scripts/validate_starpilot_inputs.sh before building. Image publication and changing the openpilot download manifest are separate release steps.
+Version 20.2.1 retains the C3 device tree, NVMe and Bluetooth configuration, the StarPilot installer and branding, C3 Python dependencies, and the validated WebRTC ICE fix. Both legacy CFFI and nanobind Raylib bindings are included. Run scripts/validate_starpilot_inputs.sh before building. Image publication and changing the openpilot download manifest are separate release steps.
