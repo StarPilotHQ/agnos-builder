@@ -9,7 +9,7 @@ from pathlib import Path
 import subprocess
 import sys
 
-assert Path('/VERSION').read_text().strip() == '20.2.1'
+assert Path('/VERSION').read_text().strip() == '20.2.2'
 for name in ('crcmod', 'serial', 'kaitaistruct', 'capnp', 'aiohttp', 'jsonrpc', 'mapbox_earcut',
              'onnx', 'cv2', 'pyaudio', 'xattr', 'zmq'):
   importlib.import_module(name)
@@ -41,4 +41,23 @@ assert Path('/usr/lib/systemd/system/starpilot-bluetooth-radio.service').is_file
 assert 'HandlePowerKeyLongPress=ignore' in Path('/etc/systemd/logind.conf').read_text()
 for name in ('setup', 'installer', 'reset', 'updater'):
   assert os.access(Path('/usr/comma') / name, os.X_OK), name
-print('StarPilot image runtime checks passed; display, audio and vehicle hardware were not opened.')
+for name in ('setup', 'reset', 'updater'):
+  for model in ('tici', 'tizi', 'mici'):
+    code = """
+import importlib, os, site, sys
+archive, name, model = sys.argv[1:]
+sys.path.insert(0, archive)
+from openpilot.common.hardware import HARDWARE
+HARDWARE.get_device_type = lambda: model
+module = importlib.import_module('openpilot.system.ui.' + name)
+assert callable(module.main)
+allowed = [os.path.realpath(p) for p in (archive, sys.prefix, sys.base_prefix, *site.getsitepackages())]
+outside = [n for n, m in list(sys.modules.items()) if getattr(m, '__file__', None)
+           and not (n == 'sitecustomize' and os.path.realpath(m.__file__) == os.path.realpath('/usr/lib/python3.12/sitecustomize.py'))
+           and not any(os.path.realpath(m.__file__).startswith(p + os.sep) for p in allowed)]
+assert not outside, outside
+"""
+    subprocess.run([sys.executable, '-I', '-B', '-c', code, '/usr/comma/' + name, name, model],
+                   cwd='/tmp', env=dict(os.environ, SCALE='1', PWD='/tmp', PYTHONDONTWRITEBYTECODE='1'),
+                   check=True, timeout=30)
+print('StarPilot image runtime and nine standalone recovery imports passed; no display, audio or reset actions.')

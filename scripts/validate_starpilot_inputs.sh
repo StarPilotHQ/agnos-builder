@@ -25,8 +25,10 @@ expect_hash() {
 }
 
 version="$(tr -d '\n' < "$DIR/VERSION")"
-[[ "$version" == "20.2.1" ]]
-expect_hash userspace/root/usr/comma/setup c5df17f88cb4955eba4102f6791bc4fd7eb32474cb48e598e4e981c3e1d66893
+[[ "$version" == "20.2.2" ]]
+expect_hash userspace/root/usr/comma/setup 8d44f590c656605ec74782acad4b9f262a1bb0b798525b97f0997949ecf82ef7
+expect_hash userspace/root/usr/comma/reset c5b050a0dc58850dd8519ed148c209d150df9c05364895f661461831e9e661eb
+expect_hash userspace/root/usr/comma/updater 3236c98fcf381eeb8935b90f29ad040660bd355a37f984ade1e7fdd14734eb71
 expect_hash userspace/root/usr/comma/installer 370d154aaf7e1e9ee433c069348ae885036a9d8cc4c8babfbfae12c8d5b3f2e8
 expect_hash userspace/root/usr/lib/firmware/amdgpu/gc_12_0_0_imu.bin.zst 9091ec887822b66b3e49b929a684a9c182057ff92340f2e7b84cba29156af3bf
 expect_hash userspace/root/usr/lib/firmware/amdgpu/gc_12_0_0_me.bin.zst 0bf7d4b54ace8af59d5c99c289bbb1b8ce77d11114bb880df308be2c9d5e2638
@@ -81,9 +83,9 @@ if command -v uv >/dev/null 2>&1; then
 fi
 
 kernel_ref="$(git -C "$DIR/agnos-kernel-sdm845" rev-parse HEAD 2>/dev/null || true)"
-[[ "$kernel_ref" == "af078e5642c6b1624feca90ec9ba01cd0739ed7f" ]]
+[[ "$kernel_ref" == "fc26da838ffd730ac0bb6f0cc5e309c222b4eea4" ]]
 
-echo "StarPilot AGNOS inputs validated (20.2.1, C3/Bluetooth, factory installer, WebRTC ICE fix)."
+echo "StarPilot AGNOS inputs validated (20.2.2, C3/Bluetooth, factory installer, WebRTC ICE fix)."
 
 grep -Fq "/dev/nvme0n1 /data/media" "$DIR/userspace/root/etc/fstab"
 grep -Fq "mkdir -p /data/media" "$DIR/userspace/root/usr/comma/fs_setup.sh"
