@@ -9,7 +9,7 @@ from pathlib import Path
 import subprocess
 import sys
 
-assert Path('/VERSION').read_text().strip() == '20.2.2'
+assert Path('/VERSION').read_text().strip() == '20.2.3'
 for name in ('crcmod', 'serial', 'kaitaistruct', 'capnp', 'aiohttp', 'jsonrpc', 'mapbox_earcut',
              'onnx', 'cv2', 'pyaudio', 'xattr', 'zmq'):
   importlib.import_module(name)
