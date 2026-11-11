@@ -56,6 +56,9 @@ jobs:
           ccache-kernel-${{ steps.kernel-submodule.outputs.ref }}-
           ccache-kernel-
 
+    - name: Check ADC interrupt completion
+      run: python3 agnos-kernel-sdm845/tools/testing/selftests/thermal/qpnp_vadc_completion.py
+
     - name: Build kernel
       env:
         CCACHE_DIR: ${{ github.workspace }}/.ccache
