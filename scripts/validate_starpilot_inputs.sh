@@ -25,7 +25,7 @@ expect_hash() {
 }
 
 version="$(tr -d '\n' < "$DIR/VERSION")"
-[[ "$version" == "20.2.2" ]]
+[[ "$version" == "20.2.3" ]]
 expect_hash userspace/root/usr/comma/setup 8d44f590c656605ec74782acad4b9f262a1bb0b798525b97f0997949ecf82ef7
 expect_hash userspace/root/usr/comma/reset c5b050a0dc58850dd8519ed148c209d150df9c05364895f661461831e9e661eb
 expect_hash userspace/root/usr/comma/updater 3236c98fcf381eeb8935b90f29ad040660bd355a37f984ade1e7fdd14734eb71
@@ -83,9 +83,9 @@ if command -v uv >/dev/null 2>&1; then
 fi
 
 kernel_ref="$(git -C "$DIR/agnos-kernel-sdm845" rev-parse HEAD 2>/dev/null || true)"
-[[ "$kernel_ref" == "fc26da838ffd730ac0bb6f0cc5e309c222b4eea4" ]]
+[[ "$kernel_ref" == "03754482cd4a86a8a4c80b9355bba27de304c4ba" ]]
 
-echo "StarPilot AGNOS inputs validated (20.2.2, C3/Bluetooth, factory installer, WebRTC ICE fix)."
+echo "StarPilot AGNOS inputs validated (20.2.3, C3/Bluetooth, factory installer, WebRTC ICE fix)."
 
 grep -Fq "/dev/nvme0n1 /data/media" "$DIR/userspace/root/etc/fstab"
 grep -Fq "mkdir -p /data/media" "$DIR/userspace/root/usr/comma/fs_setup.sh"
