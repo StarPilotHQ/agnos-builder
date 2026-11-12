@@ -15,7 +15,7 @@ for name in ('crcmod', 'serial', 'kaitaistruct', 'capnp', 'aiohttp', 'jsonrpc', 
   importlib.import_module(name)
 assert importlib.metadata.version('pycapnp') == '2.1.0'
 assert importlib.metadata.version('libusb1') == '3.1.0'
-assert importlib.metadata.version('comma-deps-raylib') == '6.0.0.1.post112'
+assert importlib.metadata.version('comma-deps-raylib') == '6.0.0.1.post106'
 
 for name in ('libzmq.so.5', 'libusb-1.0.so.0', 'libstdc++.so.6', 'libgcc_s.so.1', 'libc.so.6', 'libm.so.6', 'libzstd.so.1'):
   ctypes.CDLL(name)
@@ -41,16 +41,34 @@ assert Path('/usr/lib/systemd/system/starpilot-bluetooth-radio.service').is_file
 assert 'HandlePowerKeyLongPress=ignore' in Path('/etc/systemd/logind.conf').read_text()
 for name in ('setup', 'installer', 'reset', 'updater'):
   assert os.access(Path('/usr/comma') / name, os.X_OK), name
+for backend in ('comma', 'headless'):
+  code = """
+from pathlib import Path
+import sys
+recovery = Path(sys.prefix) / 'share/starpilot-recovery'
+sys.path.insert(0, str(recovery))
+import raylib_nb
+assert Path(raylib_nb.native.__file__).resolve().parent == recovery / 'raylib_nb'
+assert callable(raylib_nb.cpu.screen)
+"""
+  subprocess.run([sys.executable, '-I', '-c', code],
+                 env=dict(os.environ, RAYLIB_BACKEND=backend), check=True, timeout=30)
+
 for name in ('setup', 'reset', 'updater'):
   for model in ('tici', 'tizi', 'mici'):
     code = """
 import importlib, os, site, sys
+from pathlib import Path
 archive, name, model = sys.argv[1:]
-sys.path.insert(0, archive)
+recovery = Path(sys.prefix) / 'share/starpilot-recovery'
+sys.path[:0] = [archive, str(recovery)]
 from openpilot.common.hardware import HARDWARE
 HARDWARE.get_device_type = lambda: model
 module = importlib.import_module('openpilot.system.ui.' + name)
 assert callable(module.main)
+import raylib_nb
+assert Path(raylib_nb.__file__).resolve().parent == recovery / 'raylib_nb'
+assert Path(raylib_nb.native.__file__).resolve().parent == recovery / 'raylib_nb'
 allowed = [os.path.realpath(p) for p in (archive, sys.prefix, sys.base_prefix, *site.getsitepackages())]
 outside = [n for n, m in list(sys.modules.items()) if getattr(m, '__file__', None)
            and not (n == 'sitecustomize' and os.path.realpath(m.__file__) == os.path.realpath('/usr/lib/python3.12/sitecustomize.py'))

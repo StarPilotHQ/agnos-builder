@@ -136,6 +136,9 @@ RUN tic -x -o /usr/share/terminfo /usr/share/terminfo/ghostty.terminfo && \
 # The standalone apps share their Python runtime and native libraries.
 RUN tar -xJf /usr/comma/agnos-apps.tar.xz -C /usr/comma && \
     rm /usr/comma/agnos-apps.tar.xz
+COPY ./userspace/recovery_raylib/ /usr/local/venv/share/starpilot-recovery/raylib_nb/
+RUN cp /usr/comma/agnos-apps/raylib_nb/{_raylib_comma.so,_raylib_headless.so,libdrm.so.2} \
+    /usr/local/venv/share/starpilot-recovery/raylib_nb/
 COPY ./userspace/root/home/$USERNAME/.config/ /root/.config
 RUN mkdir -p /usr/lib/firmware/qca
 

@@ -26,9 +26,9 @@ expect_hash() {
 
 version="$(tr -d '\n' < "$DIR/VERSION")"
 [[ "$version" == "20.5.1" ]]
-expect_hash userspace/root/usr/comma/setup 485dc43fca05d1894734007102ae080f5dd79d274b4bfa5020d56d424f4b6ecf
-expect_hash userspace/root/usr/comma/reset 7f112484983c2b7468cd585e115c819f32371849ccafe29913f6e6386647c464
-expect_hash userspace/root/usr/comma/updater a544a69fdb51622964a8bde8cca8735033e6c68d797719a83259a3c7ac042837
+expect_hash userspace/root/usr/comma/setup e04c63448610dbeaf57c8139450f8a314a7430336f3b3fc71eab4714a64d3129
+expect_hash userspace/root/usr/comma/reset 3b088e5a51d0823f99228a78e778adf1d18ba3b43e4aac881c6b353292c09df4
+expect_hash userspace/root/usr/comma/updater 1430b368162d714a1a3898663e8cede403a50427372d92a2fb9a2dea7e6a2a87
 expect_hash userspace/root/usr/comma/installer 370d154aaf7e1e9ee433c069348ae885036a9d8cc4c8babfbfae12c8d5b3f2e8
 expect_hash userspace/root/usr/lib/firmware/amdgpu/gc_12_0_0_imu.bin.zst 9091ec887822b66b3e49b929a684a9c182057ff92340f2e7b84cba29156af3bf
 expect_hash userspace/root/usr/lib/firmware/amdgpu/gc_12_0_0_me.bin.zst 0bf7d4b54ace8af59d5c99c289bbb1b8ce77d11114bb880df308be2c9d5e2638
@@ -83,7 +83,7 @@ if command -v uv >/dev/null 2>&1; then
 fi
 
 kernel_ref="$(git -C "$DIR/agnos-kernel-sdm845" rev-parse HEAD 2>/dev/null || true)"
-[[ "$kernel_ref" == "6b8d6a5e445fb3dbfa05eb9787bcc93546f6c83c" ]]
+[[ "$kernel_ref" == "1df457b12c1b81a358deb22e7c216370c6819f1d" ]]
 
 echo "StarPilot AGNOS inputs validated (20.5.1, C3/Bluetooth, factory installer, WebRTC ICE fix)."
 
@@ -92,3 +92,11 @@ grep -Fq "mkdir -p /data/media" "$DIR/userspace/root/usr/comma/boot.sh"
 grep -Fq "x-systemd.before=comma.service" "$DIR/userspace/root/etc/fstab"
 grep -Fq "sudo chown comma: /data/media" "$DIR/userspace/root/usr/comma/comma.sh"
 grep -Fq "x-systemd.after=boot.service" "$DIR/userspace/root/etc/fstab"
+expect_hash userspace/recovery_raylib/__init__.py aaf8fd1f33a49f75c3437f476f8af9eb88116d05dd1fcf1dfe723f793dff62fa
+expect_hash userspace/recovery_raylib/_backend.py b225028e1b9318dca15e5e6f02587c46490a4ab7b6d47bbbcd434d2ce6476129
+expect_hash userspace/recovery_raylib/colors.py 6a760d1c196abffc61277147c7a918fa84181bf4fd73a28e21843b22a3b2900a
+expect_hash userspace/recovery_raylib/enums.py f042c81a16644f4465131e2a5463da466d0ac35ab4685e8b74885bb299d702eb
+expect_hash userspace/recovery_raylib/licenses/LICENSE.nanobind f305091a4e57805870b217a28ea4b1f16610eece8457d2370f822a9696b75836
+expect_hash userspace/recovery_raylib/licenses/LICENSE.raylib 882a5a819cf562aa3583aae3af3f2211dda15c63de9fc8cc4b399a2f9e78d799
+expect_hash userspace/recovery_raylib/licenses/LICENSE.robin-map 34bbaea469971f0274e5df342ae23d8f15267e279e8a50dc75ea0c5e969b5e2c
+expect_hash userspace/root/usr/comma/agnos-apps.tar.xz 19e29afc2c21677bb41dd84e2305076040bb8e242a34077ff33dcc520c0c8773
