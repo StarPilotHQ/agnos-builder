@@ -9,13 +9,13 @@ from pathlib import Path
 import subprocess
 import sys
 
-assert Path('/VERSION').read_text().strip() == '20.2.3'
+assert Path('/VERSION').read_text().strip() == '20.5.1'
 for name in ('crcmod', 'serial', 'kaitaistruct', 'capnp', 'aiohttp', 'jsonrpc', 'mapbox_earcut',
              'onnx', 'cv2', 'pyaudio', 'xattr', 'zmq'):
   importlib.import_module(name)
 assert importlib.metadata.version('pycapnp') == '2.1.0'
 assert importlib.metadata.version('libusb1') == '3.1.0'
-assert importlib.metadata.version('comma-deps-raylib') == '6.0.0.1.post106'
+assert importlib.metadata.version('comma-deps-raylib') == '6.0.0.1.post112'
 
 for name in ('libzmq.so.5', 'libusb-1.0.so.0', 'libstdc++.so.6', 'libgcc_s.so.1', 'libc.so.6', 'libm.so.6', 'libzstd.so.1'):
   ctypes.CDLL(name)

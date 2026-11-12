@@ -24,7 +24,7 @@ class PackageTests(unittest.TestCase):
       image.write_bytes(payload)
       entry = ota.Partition('system', image, True, True, False, True)
       with patch.object(ota, 'OTA_OUTPUT_DIR', folder), patch.object(ota, 'compress', side_effect=shutil.copyfile):
-        manifest = ota.process_file(entry)
+        manifest = ota.process_file(entry, ota.checksum(entry))
       self.assertEqual(manifest['hash'], hashlib.sha256(payload).hexdigest())
       self.assertEqual(manifest['hash_raw'], hashlib.sha256(b'a' * 4096 + bytes(4096)).hexdigest())
       self.assertEqual(manifest['ondevice_hash'], hashlib.sha256(b'a' * 4096).hexdigest())

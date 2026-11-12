@@ -7,7 +7,7 @@ export DEBIAN_FRONTEND=noninteractive
 # Identify this image to openpilot.
 touch /TICI /AGNOS
 
-# Install apt-fast.
+# Install package management prerequisites.
 apt-get update
 apt-get install --no-install-recommends -yq ca-certificates curl sudo wget
 
@@ -54,7 +54,6 @@ apt-get install --no-install-recommends -yq \
     systemd-resolved \
     systemd-timesyncd \
     tmux \
-    udev \
     usbutils \
     vim \
     wpasupplicant

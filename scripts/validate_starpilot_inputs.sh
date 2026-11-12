@@ -25,10 +25,10 @@ expect_hash() {
 }
 
 version="$(tr -d '\n' < "$DIR/VERSION")"
-[[ "$version" == "20.2.3" ]]
-expect_hash userspace/root/usr/comma/setup 8d44f590c656605ec74782acad4b9f262a1bb0b798525b97f0997949ecf82ef7
-expect_hash userspace/root/usr/comma/reset c5b050a0dc58850dd8519ed148c209d150df9c05364895f661461831e9e661eb
-expect_hash userspace/root/usr/comma/updater 3236c98fcf381eeb8935b90f29ad040660bd355a37f984ade1e7fdd14734eb71
+[[ "$version" == "20.5.1" ]]
+expect_hash userspace/root/usr/comma/setup 485dc43fca05d1894734007102ae080f5dd79d274b4bfa5020d56d424f4b6ecf
+expect_hash userspace/root/usr/comma/reset 7f112484983c2b7468cd585e115c819f32371849ccafe29913f6e6386647c464
+expect_hash userspace/root/usr/comma/updater a544a69fdb51622964a8bde8cca8735033e6c68d797719a83259a3c7ac042837
 expect_hash userspace/root/usr/comma/installer 370d154aaf7e1e9ee433c069348ae885036a9d8cc4c8babfbfae12c8d5b3f2e8
 expect_hash userspace/root/usr/lib/firmware/amdgpu/gc_12_0_0_imu.bin.zst 9091ec887822b66b3e49b929a684a9c182057ff92340f2e7b84cba29156af3bf
 expect_hash userspace/root/usr/lib/firmware/amdgpu/gc_12_0_0_me.bin.zst 0bf7d4b54ace8af59d5c99c289bbb1b8ce77d11114bb880df308be2c9d5e2638
@@ -83,9 +83,12 @@ if command -v uv >/dev/null 2>&1; then
 fi
 
 kernel_ref="$(git -C "$DIR/agnos-kernel-sdm845" rev-parse HEAD 2>/dev/null || true)"
-[[ "$kernel_ref" == "03754482cd4a86a8a4c80b9355bba27de304c4ba" ]]
+[[ "$kernel_ref" == "6b8d6a5e445fb3dbfa05eb9787bcc93546f6c83c" ]]
 
-echo "StarPilot AGNOS inputs validated (20.2.3, C3/Bluetooth, factory installer, WebRTC ICE fix)."
+echo "StarPilot AGNOS inputs validated (20.5.1, C3/Bluetooth, factory installer, WebRTC ICE fix)."
 
 grep -Fq "/dev/nvme0n1 /data/media" "$DIR/userspace/root/etc/fstab"
-grep -Fq "mkdir -p /data/media" "$DIR/userspace/root/usr/comma/fs_setup.sh"
+grep -Fq "mkdir -p /data/media" "$DIR/userspace/root/usr/comma/boot.sh"
+grep -Fq "x-systemd.before=comma.service" "$DIR/userspace/root/etc/fstab"
+grep -Fq "sudo chown comma: /data/media" "$DIR/userspace/root/usr/comma/comma.sh"
+grep -Fq "x-systemd.after=boot.service" "$DIR/userspace/root/etc/fstab"
