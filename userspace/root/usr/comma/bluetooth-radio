@@ -196,7 +196,15 @@ setup() {
   [[ "$model" == *tici* || "$model" == *tizi* || "$model" == *mici* ]]
 
   slot="$(sed -n 's/.*androidboot.slot_suffix=\([^ ]*\).*/\1/p' /proc/cmdline)"
-  device="/dev/disk/by-partlabel/bluetooth${slot}"
+  # No udev, so find the partition by name in sysfs.
+  uevent=""
+  for _ in $(seq 1 50); do
+    uevent="$(grep -lx "PARTNAME=bluetooth${slot}" /sys/class/block/sd*/uevent 2>/dev/null | head -n 1)"
+    [[ -n "$uevent" ]] && break
+    sleep 0.1
+  done
+  [[ -n "$uevent" ]]
+  device="/dev/$(basename "$(dirname "$uevent")")"
   [[ -b "$device" ]]
 
   mkdir -p "$FIRMWARE_MOUNT" "$FIRMWARE_BIND" "$BLUETOOTH_STATE" "$BLUETOOTH_BIND"
