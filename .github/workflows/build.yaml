@@ -62,6 +62,9 @@ jobs:
     - name: Check Bluetooth LE role gates
       run: python3 agnos-kernel-sdm845/tools/testing/selftests/bluetooth/test_le_roles.py
 
+    - name: Check Bluetooth and legacy-device startup
+      run: python3 -m unittest discover -s tests -v
+
     - name: Build kernel
       env:
         CCACHE_DIR: ${{ github.workspace }}/.ccache

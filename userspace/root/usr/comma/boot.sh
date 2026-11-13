@@ -304,7 +304,9 @@ function setup_gpios {
     34   # GPS_PWR_EN, not connected on mici but pigeond still drives it
     52   # LTE_BOOT
   )
-  if grep -q mici /sys/firmware/devicetree/base/model; then
+  if grep -q tici /sys/firmware/devicetree/base/model; then
+    pins+=(30 32 33)
+  elif grep -q mici /sys/firmware/devicetree/base/model; then
     pins+=(
       33   # GPS_SAFEBOOT_N
       32   # GPS_RST_N
@@ -321,6 +323,10 @@ function setup_gpios {
   done
   chgrp -f gpio "${nodes[@]}"
   chmod -f 770 "${nodes[@]}"
+
+  if grep -q tici /sys/firmware/devicetree/base/model; then
+    echo high > /sys/class/gpio/gpio30/direction
+  fi
 
   return $ret
 }
