@@ -9,6 +9,11 @@ COMMA = ROOT / 'userspace/root/usr/comma'
 
 
 class LegacyDeviceTests(unittest.TestCase):
+  def test_build_and_runtime_keep_the_exact_release_version(self):
+    version = (ROOT / 'VERSION').read_text().strip()
+    self.assertIn(f'[[ "$version" == "{version}" ]]', (ROOT / 'scripts/validate_starpilot_inputs.sh').read_text())
+    self.assertIn(f"== '{version}'", (ROOT / 'userspace/check_starpilot_runtime.py').read_text())
+
   def setUp(self):
     self.temp = tempfile.TemporaryDirectory()
     self.addCleanup(self.temp.cleanup)

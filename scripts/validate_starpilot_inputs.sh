@@ -25,7 +25,7 @@ expect_hash() {
 }
 
 version="$(tr -d '\n' < "$DIR/VERSION")"
-[[ "$version" == "20.5.1" ]]
+[[ "$version" == "20.5.2" ]]
 expect_hash userspace/root/usr/comma/setup e04c63448610dbeaf57c8139450f8a314a7430336f3b3fc71eab4714a64d3129
 expect_hash userspace/root/usr/comma/reset 3b088e5a51d0823f99228a78e778adf1d18ba3b43e4aac881c6b353292c09df4
 expect_hash userspace/root/usr/comma/updater 1430b368162d714a1a3898663e8cede403a50427372d92a2fb9a2dea7e6a2a87
@@ -85,7 +85,7 @@ fi
 kernel_ref="$(git -C "$DIR/agnos-kernel-sdm845" rev-parse HEAD 2>/dev/null || true)"
 [[ "$kernel_ref" == "1df457b12c1b81a358deb22e7c216370c6819f1d" ]]
 
-echo "StarPilot AGNOS inputs validated (20.5.1, C3/Bluetooth, factory installer, WebRTC ICE fix)."
+echo "StarPilot AGNOS inputs validated (20.5.2, C3/Bluetooth, factory installer, WebRTC ICE fix)."
 
 grep -Fq "/dev/nvme0n1 /data/media" "$DIR/userspace/root/etc/fstab"
 grep -Fq "mkdir -p /data/media" "$DIR/userspace/root/usr/comma/boot.sh"
