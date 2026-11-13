@@ -97,7 +97,9 @@ function mount_data {
   mkdir -p /data/media /data/etc/netplan /data/etc/NetworkManager/system-connections /data/ssh /data/tmp \
     /data/persist/hlos_rfs/shared /data/persist/rfs/shared \
     /data/persist/rfs/msm/adsp /data/persist/rfs/msm/mpss
-  touch /data/etc/timezone /data/etc/localtime
+  for path in /data/etc/timezone /data/etc/localtime; do
+    [ -e "$path" ] || touch "$path"
+  done
   chown comma: /data/ssh /data/tmp
 }
 

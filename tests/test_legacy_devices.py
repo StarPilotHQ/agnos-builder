@@ -14,6 +14,27 @@ class LegacyDeviceTests(unittest.TestCase):
     self.assertIn(f'[[ "$version" == "{version}" ]]', (ROOT / 'scripts/validate_starpilot_inputs.sh').read_text())
     self.assertIn(f"== '{version}'", (ROOT / 'userspace/check_starpilot_runtime.py').read_text())
 
+  def test_boot_preserves_existing_timezone_symlink_and_creates_missing_files(self):
+    source = (COMMA / 'boot.sh').read_text()
+    start = source.index('  for path in /data/etc/timezone /data/etc/localtime; do')
+    block = source[start:source.index('\n  done', start) + len('\n  done')]
+    etc = self.root / 'etc'
+    etc.mkdir()
+    timezone = etc / 'timezone'
+    localtime = etc / 'localtime'
+    block = block.replace('/data/etc/', str(etc) + '/')
+    subprocess.run(['bash', '-e', '-c', block], check=True)
+    self.assertTrue(timezone.is_file())
+    self.assertTrue(localtime.is_file())
+    timezone.write_text('America/Chicago\n')
+    localtime.unlink()
+    localtime.symlink_to('/proc/version')
+    before = timezone.stat().st_mtime_ns
+    subprocess.run(['bash', '-e', '-c', block], check=True)
+    self.assertEqual(localtime.readlink(), Path('/proc/version'))
+    self.assertEqual(timezone.read_text(), 'America/Chicago\n')
+    self.assertEqual(timezone.stat().st_mtime_ns, before)
+
   def setUp(self):
     self.temp = tempfile.TemporaryDirectory()
     self.addCleanup(self.temp.cleanup)
