@@ -9,7 +9,7 @@ from pathlib import Path
 import subprocess
 import sys
 
-assert Path('/VERSION').read_text().strip() == '20.5.4'
+assert Path('/VERSION').read_text().strip() == '20.5.5'
 for name in ('crcmod', 'serial', 'kaitaistruct', 'capnp', 'aiohttp', 'jsonrpc', 'mapbox_earcut',
              'onnx', 'cv2', 'pyaudio', 'xattr', 'zmq'):
   importlib.import_module(name)
@@ -59,6 +59,9 @@ for name in ('setup', 'reset', 'updater'):
     code = """
 import importlib, os, site, sys
 from pathlib import Path
+import tempfile
+from types import SimpleNamespace
+from unittest.mock import patch
 archive, name, model = sys.argv[1:]
 recovery = Path(sys.prefix) / 'share/starpilot-recovery'
 sys.path[:0] = [archive, str(recovery)]
@@ -66,6 +69,26 @@ from openpilot.common.hardware import HARDWARE
 HARDWARE.get_device_type = lambda: model
 module = importlib.import_module('openpilot.system.ui.' + name)
 assert callable(module.main)
+if name == 'setup':
+  ui = importlib.import_module('openpilot.system.ui.' + ('mici' if model == 'mici' else 'tici') + '_setup')
+  HARDWARE.get_serial = lambda: 'test-serial'
+  installer_urls = (
+    (ui.OPENPILOT_URL, '20.6'),
+    ('https://installer.comma.ai/StarPilotHQ/stable', '20.6'),
+    ('https://openpilot-test.comma.ai', '20.6'),
+    ('https://example.invalid/install', '20.5.5'),
+  )
+  for url, version in installer_urls:
+    with (
+      tempfile.TemporaryDirectory() as temp,
+      patch.object(tempfile, 'tempdir', temp),
+      patch.object(ui.urllib.request, 'urlopen', side_effect=OSError('stop before download')) as fetch,
+    ):
+      ui.Setup._download_thread(SimpleNamespace(download_url=url))
+      request = fetch.call_args.args[0]
+      assert request.full_url == url
+      assert request.get_header('User-agent') == f'AGNOSSetup-{version}'
+      assert request.get_header('X-openpilot-device-type') == model
 import raylib_nb
 assert Path(raylib_nb.__file__).resolve().parent == recovery / 'raylib_nb'
 assert Path(raylib_nb.native.__file__).resolve().parent == recovery / 'raylib_nb'

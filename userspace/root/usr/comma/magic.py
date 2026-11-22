@@ -33,16 +33,6 @@ def show_background(tex, pos):
   rl.end_drawing()
   power_screen()
 
-def load_background():
-  rl.init_window(0, 0, "not weston")
-  img = rl.load_image(BACKGROUND)
-  rl.image_resize(img, rl.get_screen_width(), rl.get_screen_width()//2)
-  tex = rl.load_texture_from_image(img)
-  rl.set_texture_filter(tex, rl.TextureFilter.TEXTURE_FILTER_BILINEAR)
-  pos = rl.Vector2((rl.get_screen_width() - tex.width)/2.0, (rl.get_screen_height() - tex.height)/2.0)
-  rl.unload_image(img)
-  return tex, pos
-
 def handle_client(client, drm_master):
   try:
     drm_master_dup = os.dup(drm_master)
@@ -114,7 +104,13 @@ def main():
       time.sleep(0.1)
 
   os.environ['DRM_FD'] = str(drm_master)
-  tex, pos = load_background()
+  rl.init_window(0, 0, "not weston")
+  img = rl.load_image(BACKGROUND)
+  rl.image_resize(img, rl.get_screen_width(), rl.get_screen_width()//2)
+  tex = rl.load_texture_from_image(img)
+  rl.set_texture_filter(tex, rl.TextureFilter.TEXTURE_FILTER_BILINEAR)
+  pos = rl.Vector2((rl.get_screen_width() - tex.width)/2.0, (rl.get_screen_height() - tex.height)/2.0)
+  rl.unload_image(img)
   show_background(tex, pos)
 
   # the panel only takes this once it's on, and loses it when magic restarts
@@ -122,7 +118,6 @@ def main():
 
   clients = set()
   need_background = False
-  background_visible = True
 
   while True:
     dead = [t for t in list(clients) if not t.is_alive()]
@@ -131,21 +126,13 @@ def main():
       clients.discard(t)
     if not clients and need_background:
       need_background = False
-      tex, pos = load_background()
       show_background(tex, pos)
-      background_visible = True
 
     try:
       client, _ = server.accept()
     except Exception:
       continue
 
-    # Release background scanout before the foreground initializes its display.
-    # Legacy GPU clients only modeset if the CRTC is inactive at initialization.
-    if background_visible:
-      rl.unload_texture(tex)
-      rl.close_window()
-      background_visible = False
     need_background = True
     t = threading.Thread(target=handle_client, args=(client, drm_master), daemon=True)
     t.start()
