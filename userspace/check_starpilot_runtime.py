@@ -8,6 +8,8 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+from tempfile import TemporaryDirectory
+from zipfile import ZipFile
 
 assert Path('/VERSION').read_text().strip() == '20.5.5'
 for name in ('crcmod', 'serial', 'kaitaistruct', 'capnp', 'aiohttp', 'jsonrpc', 'mapbox_earcut',
@@ -27,6 +29,22 @@ for name in ('pyray', 'raylib_nb'):
   code = f'import {name} as r; v=r.Vector2(2,3); assert v.x==2 and v.y==3; c=r.Color(1,2,3,4); assert c.a==4'
   subprocess.run([sys.executable, '-I', '-c', code], env=dict(os.environ, RAYLIB_BACKEND='headless'),
                  check=True, timeout=30)
+
+# Simulate the published zipapp entry point so Python runs the same .pth hook.
+with TemporaryDirectory() as temp:
+  updater = Path(temp) / 'updater'
+  for legacy in (True, False):
+    with ZipFile(updater, 'w') as archive:
+      archive.writestr('__main__.py', f'''
+import pyray
+assert pyray.__file__.startswith('/usr/local/legacy-raylib/') == {legacy}, pyray.__file__
+if {legacy}:
+  assert hasattr(pyray, 'GuiTextAlignment')
+''')
+      archive.writestr('openpilot/system/ui/widgets/label.py', 'rl.GuiTextAlignment' if legacy else '')
+    subprocess.run([sys.executable, '-I', str(updater)], env=dict(os.environ, RAYLIB_BACKEND='headless'),
+                   check=True, timeout=30)
+
 for package in ('raylib', 'raylib_nb'):
   folder = Path(importlib.util.find_spec(package).origin).parent
   libraries = list(folder.glob('*comma*.so'))
