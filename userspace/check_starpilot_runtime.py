@@ -96,13 +96,20 @@ if name == 'setup':
     ('https://openpilot-test.comma.ai', '20.6'),
     ('https://example.invalid/install', '20.5.5'),
   )
+
+  class StopBeforeDownload(BaseException):
+    pass
+
   for url, version in installer_urls:
     with (
       tempfile.TemporaryDirectory() as temp,
       patch.object(tempfile, 'tempdir', temp),
-      patch.object(ui.urllib.request, 'urlopen', side_effect=OSError('stop before download')) as fetch,
+      patch.object(ui.urllib.request, 'urlopen', side_effect=StopBeforeDownload) as fetch,
     ):
-      ui.Setup._download_thread(SimpleNamespace(download_url=url))
+      try:
+        ui.Setup._download_thread(SimpleNamespace(download_url=url))
+      except StopBeforeDownload:
+        pass
       request = fetch.call_args.args[0]
       assert request.full_url == url
       assert request.get_header('User-agent') == f'AGNOSSetup-{version}'
