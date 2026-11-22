@@ -14,6 +14,33 @@ class LegacyDeviceTests(unittest.TestCase):
     self.assertIn(f'[[ "$version" == "{version}" ]]', (ROOT / 'scripts/validate_starpilot_inputs.sh').read_text())
     self.assertIn(f"== '{version}'", (ROOT / 'userspace/check_starpilot_runtime.py').read_text())
 
+  def test_installer_waits_for_setup_to_release_display(self):
+    source = (COMMA / 'comma.sh').read_text()
+    loop = source[source.rindex('\nwhile true; do\n'):]
+    setup = self.root / 'setup'
+    setup.write_text('''#!/bin/bash
+cat > installer-download <<'EOF'
+#!/bin/bash
+if [[ -f display-released ]]; then echo ready; else echo busy; fi > installer-result
+mv finish "$CONTINUE"
+EOF
+mv installer-download "$INSTALLER"
+sleep 0.5
+touch display-released
+''')
+    setup.chmod(0o755)
+    finish = self.root / 'finish'
+    finish.write_text('#!/bin/bash\nexit 0\n')
+    finish.chmod(0o755)
+    env = dict(os.environ, SETUP=str(setup), INSTALLER=str(self.root / 'installer'), CONTINUE=str(self.root / 'continue.sh'))
+    # Stop after the first installer attempt so a later retry cannot mask a race.
+    stubs = '''handle_setup_keys() { :; }
+sudo() { :; }
+pkill() { :; }
+'''
+    subprocess.run(['bash', '-c', stubs + loop], cwd=self.root, env=env, timeout=5, check=True)
+    self.assertEqual((self.root / 'installer-result').read_text().strip(), 'ready')
+
   def test_boot_preserves_existing_timezone_symlink_and_creates_missing_files(self):
     source = (COMMA / 'boot.sh').read_text()
     start = source.index('  for path in /data/etc/timezone /data/etc/localtime; do')
